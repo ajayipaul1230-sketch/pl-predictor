@@ -1,0 +1,7 @@
+League,Matches,Model Log-Loss,Odds Log-Loss,Model Brier,Odds Brier
+Superliga,358,0.9805,0.9892,0.5883,0.5913
+Eliteserien,441,0.9602,0.9763,0.573,0.5805
+La Liga,380,0.9486,0.9463,0.5613,0.5593
+Premier League,377,0.9777,0.9696,0.5826,0.5772
+Serie A,376,0.9475,0.9515,0.5649,0.5671
+Bundesliga,300,0.9998,0.993,0.5968,0.5936
