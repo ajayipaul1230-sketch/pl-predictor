@@ -1,8 +1,9 @@
+streamlit
 pandas
 scikit-learn
 scipy
 matplotlib
-streamlit
 pyarrow
 requests
+python-dotenv
 joblib
