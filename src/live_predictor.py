@@ -65,7 +65,7 @@ def get_latest_team_stats(team, feat_df):
         }
 
 def fetch_live_predictions(model, feat_df):
-    api_key = st.secrets("ODDS_API_KEY")
+    api_key = st.secrets["ODDS_API_KEY"]
     if not api_key:
         return pd.DataFrame({"Error": ["API Key not found in .env file."]})
 
