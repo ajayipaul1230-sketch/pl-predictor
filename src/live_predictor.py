@@ -48,6 +48,18 @@ TEAM_NAME_MAP = {
     "Odds BK": "Odd", "Rosenborg BK": "Rosenborg", "Sandefjord": "Sandefjord", 
     "Sarpsborg 08": "Sarpsborg", "Stromsgodset": "Stromsgodset", "Tromso": "Tromso", 
     "Viking FK": "Viking"
+    # Add these to the end of your TEAM_NAME_MAP in src/live_predictor.py:
+    "Atlético Madrid": "Ath Madrid",
+    "Alavés": "Alaves",
+    "Espanyol": "Espanyol",
+    "Bodø/Glimt": "Bodo/Glimt",
+    "Vålerenga": "Valerenga",
+    "FSV Mainz 05": "Mainz",
+    "1. FC Köln": "FC Koln",
+    "Deportivo La Coruña": "La Coruna",
+    "Málaga": "Malaga",
+    "Sarpsborg FK": "Sarpsborg",
+    "Kristiansund BK": "Kristiansund"
 }
 
 def get_implied_probs(h, d, a):
