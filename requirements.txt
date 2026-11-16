@@ -7,3 +7,5 @@ pyarrow
 requests
 python-dotenv
 joblib
+sqlalchemy
+psycopg2-binary

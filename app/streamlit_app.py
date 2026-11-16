@@ -1,83 +1,110 @@
-def fetch_live_predictions(model, feat_df):
-    api_key = st.secrets.get("ODDS_API_KEY")
-    if not api_key:
-        return pd.DataFrame({"Error": ["API Key not found in .env file."]}), []
+import sys, pathlib
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT / "src"))
 
-    # Load custom mappings from DB and merge with hardcoded ones
-    db_mappings = get_team_mappings()
-    master_map = {**TEAM_NAME_MAP, **db_mappings}
+import pandas as pd
+import joblib
+import streamlit as st
+from features import FEATURES
+from live_predictor import fetch_live_predictions
+from database import sync_results, get_all_predictions, save_team_mapping
 
-    all_predictions = []
-    unmapped_teams = set() # Keep track of teams we don't know
+st.set_page_config(page_title="Multi-League Predictor", page_icon="⚽", layout="wide")
+st.title("⚽ European Football Probability Predictor")
 
-    for league_name, sport_key in LEAGUE_API_MAP.items():
-        url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/?apiKey={api_key}&regions=uk&markets=h2h"
-        res = requests.get(url)
+@st.cache_data(ttl=3600)
+def load_data(): return pd.read_parquet(ROOT / "data/processed/features.parquet")
+
+@st.cache_resource
+def load_model(): return joblib.load(ROOT / "models/multi_league_model.joblib")
+
+feat = load_data()
+model = load_model()["model"]
+
+tab1, tab2, tab3, tab4 = st.tabs(["🔥 Live Fixtures", "🎮 Matchup Simulator", "📊 Model Analytics", "📈 Prediction Tracker"])
+
+# --- TAB 1: LIVE FIXTURES ---
+with tab1:
+    st.header("Upcoming Matches Across Europe")
+    
+    if st.button("Refresh Live Data"):
+        st.cache_data.clear()
         
-        if res.status_code != 200: continue
-        data = res.json()
-        if not data: continue
-
-        for match in data:
-            home_raw = match["home_team"]
-            away_raw = match["away_team"]
-            
-            # Use the master map (hardcoded + database)
-            home_team = master_map.get(home_raw, home_raw)
-            away_team = master_map.get(away_raw, away_raw)
-
-            h_stats = get_latest_team_stats(home_team, feat_df)
-            a_stats = get_latest_team_stats(away_team, feat_df)
-            
-            # If we don't have data, log the unknown raw name and skip
-            if not h_stats:
-                unmapped_teams.add((home_raw, league_name))
-                continue
-            if not a_stats:
-                unmapped_teams.add((away_raw, league_name))
-                continue
-
-            h_odds, d_odds, a_odds = [], [], []
-            for bookmaker in match["bookmakers"]:
-                for market in bookmaker["markets"]:
-                    if market["key"] == "h2h":
-                        for outcome in market["outcomes"]:
-                            if outcome["name"] == home_raw: h_odds.append(outcome["price"])
-                            elif outcome["name"] == away_raw: a_odds.append(outcome["price"])
-                            elif outcome["name"] == "Draw": d_odds.append(outcome["price"])
-            
-            if not h_odds or not d_odds or not a_odds: continue
-
-            p_home, p_draw, p_away = get_implied_probs(
-                sum(h_odds)/len(h_odds), sum(d_odds)/len(d_odds), sum(a_odds)/len(a_odds)
-            )
-
-            row = {
-                "league": league_name, 
-                "Date": pd.to_datetime(match["commence_time"]).strftime("%Y-%m-%d %H:%M"),
-                "HomeTeam": home_team,
-                "AwayTeam": away_team,
-                "elo_diff": h_stats["elo"] - a_stats["elo"],
-                "form_diff": h_stats["ppg"] - a_stats["ppg"],
-                "form_home_gf": h_stats["gf"], "form_home_ga": h_stats["ga"],
-                "form_away_gf": a_stats["gf"], "form_away_ga": a_stats["ga"],
-                "rest_home": 7, "rest_away": 7, 
-                "p_home": p_home, "p_draw": p_draw, "p_away": p_away
-            }
-            
-            probs = model.predict_proba(pd.DataFrame([row])[FEATURES])[0]
-            row["Home Win %"] = round(probs[0]*100, 1)
-            row["Draw %"] = round(probs[1]*100, 1)
-            row["Away Win %"] = round(probs[2]*100, 1)
-            
-            all_predictions.append(row)
-
-    if not all_predictions:
-        df = pd.DataFrame({"Info": ["No upcoming matches found."]})
+    with st.spinner("Fetching live odds..."):
+        live_df, unmapped = fetch_live_predictions(model, feat)
+        
+    if unmapped:
+        st.warning(f"⚠️ Found {len(unmapped)} unknown team(s) in the API. Please map them.")
+        all_teams = sorted(feat["HomeTeam"].unique())
+        for api_name, league in unmapped:
+            with st.expander(f"Map '{api_name}' ({league})"):
+                selected_team = st.selectbox(f"Select the correct name for '{api_name}'", ["-- Select --"] + all_teams, key=api_name)
+                if st.button(f"Save mapping for {api_name}"):
+                    if selected_team != "-- Select --":
+                        save_team_mapping(api_name, selected_team)
+                        st.success(f"Mapped '{api_name}' to '{selected_team}'! Refreshing...")
+                        st.rerun()
+        
+    if "Error" in live_df.columns or "Info" in live_df.columns:
+        st.info(live_df.iloc[0, 0])
     else:
-        df = pd.DataFrame(all_predictions)
-        save_predictions(df) # Save to DB
-        df = df.sort_values(["league", "Date"]).reset_index(drop=True)
-        df = df[["league", "Date", "HomeTeam", "AwayTeam", "Home Win %", "Draw %", "Away Win %", "p_home", "p_draw", "p_away"]]
+        for league in live_df["league"].unique():
+            st.subheader(league)
+            st.dataframe(live_df[live_df["league"] == league].drop(columns=["league", "p_home", "p_draw", "p_away"]), use_container_width=True, hide_index=True)
 
-    return df, list(unmapped_teams)
+# --- TAB 2: SIMULATOR ---
+with tab2:
+    st.header("Matchup Simulator")
+    all_leagues = sorted(feat["league"].unique())
+    selected_league = st.selectbox("Select League", all_leagues)
+    league_df = feat[feat["league"] == selected_league]
+    all_teams = sorted(league_df["HomeTeam"].unique())
+    
+    col1, col2 = st.columns(2)
+    with col1: home_team = st.selectbox("Select Home Team", all_teams, index=0)
+    with col2: away_team = st.selectbox("Select Away Team", all_teams, index=1 if len(all_teams)>1 else 0)
+
+    if home_team == away_team:
+        st.warning("Please select two different teams.")
+    else:
+        h_stat = league_df[league_df["HomeTeam"] == home_team].iloc[-1]
+        a_stat = league_df[league_df["AwayTeam"] == away_team].iloc[-1]
+        sim_features = pd.DataFrame([{
+            "league": selected_league, "elo_diff": h_stat["elo_home"] - a_stat["elo_away"],
+            "form_diff": h_stat["form_home_ppg"] - a_stat["form_away_ppg"], "form_home_gf": h_stat["form_home_gf"], 
+            "form_home_ga": h_stat["form_home_ga"], "form_away_gf": a_stat["form_away_gf"], "form_away_ga": a_stat["form_away_ga"],
+            "rest_home": 7, "rest_away": 7, "p_home": 0.45, "p_draw": 0.25, "p_away": 0.30
+        }])
+        probs = model.predict_proba(sim_features[FEATURES])[0]
+        st.divider()
+        pcol1, pcol2, pcol3 = st.columns(3)
+        pcol1.metric(f"{home_team} Win", f"{probs[0]*100:.1f}%")
+        pcol2.metric("Draw", f"{probs[1]*100:.1f}%")
+        pcol3.metric(f"{away_team} Win", f"{probs[2]*100:.1f}%")
+
+# --- TAB 3: MODEL ANALYTICS ---
+with tab3:
+    st.header("Model Analytics")
+    img_path = ROOT / "data/processed/multi_calibration.png"
+    if img_path.exists(): st.image(str(img_path), caption="Calibration Curve", width=800)
+    metrics_path = ROOT / "data/processed/metrics.csv"
+    if metrics_path.exists(): st.dataframe(pd.read_csv(metrics_path), use_container_width=True, hide_index=True)
+
+# --- TAB 4: PREDICTION TRACKER ---
+with tab4:
+    st.header("Prediction Tracker")
+    if st.button("🔄 Sync Match Results"):
+        with st.spinner("Checking for results..."):
+            updated = sync_results()
+            if updated > 0: st.success(f"Updated {updated} matches!")
+            else: st.info("No new results found.")
+                
+    df_history = get_all_predictions()
+    if not df_history.empty:
+        finished = df_history.dropna(subset=["actual_result"])
+        if not finished.empty: st.metric("Overall Average Brier Score", f"{finished['brier_score'].mean():.4f}")
+            
+        display_df = df_history.copy()
+        for col in ["p_home", "p_draw", "p_away"]:
+            display_df[col] = (display_df[col] * 100).round(1).astype(str) + "%"
+        st.dataframe(display_df[["match_date", "league", "home_team", "away_team", "p_home", "p_draw", "p_away", "actual_result", "brier_score"]], use_container_width=True, hide_index=True)

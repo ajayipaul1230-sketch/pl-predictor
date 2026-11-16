@@ -1,45 +1,34 @@
 import os, pathlib, requests, pandas as pd
-import streamlit as st
 from dotenv import load_dotenv
+import streamlit as st
 from features import FEATURES
+from database import get_team_mappings, save_predictions
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-load_dotenv(ROOT / ".env")
+load_dotenv()
 
 LEAGUE_API_MAP = {
-    "Premier League": "soccer_epl",
-    "La Liga": "soccer_spain_la_liga",
-    "Serie A": "soccer_italy_serie_a",
-    "Bundesliga": "soccer_germany_bundesliga",
-    "Superliga": "soccer_denmark_superliga",
-    "Eliteserien": "soccer_norway_eliteserien"
+    "Premier League": "soccer_epl", "La Liga": "soccer_spain_la_liga",
+    "Serie A": "soccer_italy_serie_a", "Bundesliga": "soccer_germany_bundesliga",
+    "Superliga": "soccer_denmark_superliga", "Eliteserien": "soccer_norway_eliteserien"
 }
 
 TEAM_NAME_MAP = {
-    "Manchester United": "Man United", "Manchester City": "Man City",
-    "Newcastle United": "Newcastle", "Nottingham Forest": "Nott'm Forest",
-    "Tottenham Hotspur": "Tottenham", "West Ham United": "West Ham",
-    "Wolverhampton Wanderers": "Wolves", "Brighton and Hove Albion": "Brighton",
-    "Leicester City": "Leicester", "Ipswich Town": "Ipswich",
-    "Athletic Bilbao": "Ath Bilbao", "Atletico Madrid": "Ath Madrid",
-    "Celta Vigo": "Celta", "Real Betis": "Betis", "Real Madrid": "Real Madrid",
-    "Real Sociedad": "Sociedad", "Sevilla FC": "Sevilla", "Valencia CF": "Valencia",
-    "Villarreal CF": "Villarreal", "Deportivo Alaves": "Alaves",
-    "Rayo Vallecano": "Vallecano", "CA Osasuna": "Osasuna", "RCD Mallorca": "Mallorca",
-    "AC Milan": "Milan", "AS Roma": "Roma", "Inter Milan": "Inter",
-    "Juventus FC": "Juventus", "SSC Napoli": "Napoli", "SS Lazio": "Lazio",
-    "ACF Fiorentina": "Fiorentina", "Atalanta BC": "Atalanta", "Bologna FC": "Bologna",
-    "Torino FC": "Torino", "Udinese Calcio": "Udinese",
-    "Bayern Munich": "Bayern Munich", "Borussia Dortmund": "Dortmund",
-    "RB Leipzig": "RB Leipzig", "Bayer Leverkusen": "Leverkusen",
-    "Eintracht Frankfurt": "Ein Frankfurt", "VfB Stuttgart": "Stuttgart",
-    "SC Freiburg": "Freiburg", "VfL Wolfsburg": "Wolfsburg",
-    "Borussia Monchengladbach": "M'gladbach", "1. FC Union Berlin": "Union Berlin",
-    "FC Augsburg": "Augsburg", "TSG Hoffenheim": "Hoffenheim", "Mainz 05": "Mainz",
-    "FC Copenhagen": "Copenhagen", "FC Midtjylland": "Midtjylland",
-    "Brondby IF": "Brondby", "AGF Aarhus": "Aarhus",
-    "Bodo/Glimt": "Bodo/Glimt", "Rosenborg BK": "Rosenborg",
-    "Molde FK": "Molde", "SK Brann": "Brann", "Viking FK": "Viking"
+    "Manchester United": "Man United", "Manchester City": "Man City", "Newcastle United": "Newcastle", 
+    "Nottingham Forest": "Nott'm Forest", "Tottenham Hotspur": "Tottenham", "West Ham United": "West Ham",
+    "Wolverhampton Wanderers": "Wolves", "Brighton and Hove Albion": "Brighton", "Leicester City": "Leicester", 
+    "Ipswich Town": "Ipswich", "Athletic Bilbao": "Ath Bilbao", "Atletico Madrid": "Ath Madrid",
+    "Celta Vigo": "Celta", "Real Betis": "Betis", "Real Madrid": "Real Madrid", "Real Sociedad": "Sociedad", 
+    "Sevilla FC": "Sevilla", "Valencia CF": "Valencia", "Villarreal CF": "Villarreal", "Deportivo Alaves": "Alaves",
+    "Rayo Vallecano": "Vallecano", "CA Osasuna": "Osasuna", "RCD Mallorca": "Mallorca", "AC Milan": "Milan", 
+    "AS Roma": "Roma", "Inter Milan": "Inter", "Juventus FC": "Juventus", "SSC Napoli": "Napoli", "SS Lazio": "Lazio",
+    "ACF Fiorentina": "Fiorentina", "Atalanta BC": "Atalanta", "Bologna FC": "Bologna", "Torino FC": "Torino", 
+    "Udinese Calcio": "Udinese", "Bayern Munich": "Bayern Munich", "Borussia Dortmund": "Dortmund", "RB Leipzig": "RB Leipzig",
+    "Bayer Leverkusen": "Leverkusen", "Eintracht Frankfurt": "Ein Frankfurt", "VfB Stuttgart": "Stuttgart",
+    "SC Freiburg": "Freiburg", "VfL Wolfsburg": "Wolfsburg", "Borussia Monchengladbach": "M'gladbach",
+    "1. FC Union Berlin": "Union Berlin", "FC Augsburg": "Augsburg", "TSG Hoffenheim": "Hoffenheim", "Mainz 05": "Mainz",
+    "FC Copenhagen": "Copenhagen", "FC Midtjylland": "Midtjylland", "Brondby IF": "Brondby", "AGF Aarhus": "Aarhus",
+    "Bodo/Glimt": "Bodo/Glimt", "Rosenborg BK": "Rosenborg", "Molde FK": "Molde", "SK Brann": "Brann", "Viking FK": "Viking"
 }
 
 def get_implied_probs(h, d, a):
@@ -49,51 +38,41 @@ def get_implied_probs(h, d, a):
 def get_latest_team_stats(team, feat_df):
     home = feat_df[feat_df["HomeTeam"] == team].tail(1)
     away = feat_df[feat_df["AwayTeam"] == team].tail(1)
-    
-    if home.empty and away.empty:
-        return None 
-        
+    if home.empty and away.empty: return None
     if not home.empty and (away.empty or home["Date"].iloc[0] > away["Date"].iloc[0]):
-        return {
-            "elo": home["elo_home"].iloc[0], "ppg": home["form_home_ppg"].iloc[0],
-            "gf": home["form_home_gf"].iloc[0], "ga": home["form_home_ga"].iloc[0]
-        }
+        return {"elo": home["elo_home"].iloc[0], "ppg": home["form_home_ppg"].iloc[0], "gf": home["form_home_gf"].iloc[0], "ga": home["form_home_ga"].iloc[0]}
     else:
-        return {
-            "elo": away["elo_away"].iloc[0], "ppg": away["form_away_ppg"].iloc[0],
-            "gf": away["form_away_gf"].iloc[0], "ga": away["form_away_ga"].iloc[0]
-        }
+        return {"elo": away["elo_away"].iloc[0], "ppg": away["form_away_ppg"].iloc[0], "gf": away["form_away_gf"].iloc[0], "ga": away["form_away_ga"].iloc[0]}
 
 def fetch_live_predictions(model, feat_df):
-    api_key = st.secrets["ODDS_API_KEY"]
-    if not api_key:
-        return pd.DataFrame({"Error": ["API Key not found in .env file."]})
+    # Safe API key loading for both local and cloud
+    try: api_key = st.secrets.get("ODDS_API_KEY")
+    except Exception: api_key = os.getenv("ODDS_API_KEY")
 
+    if not api_key:
+        return pd.DataFrame({"Error": ["API Key not found. Check .env or Streamlit Secrets."]}), []
+
+    db_mappings = get_team_mappings()
+    master_map = {**TEAM_NAME_MAP, **db_mappings}
     all_predictions = []
+    unmapped_teams = set()
 
     for league_name, sport_key in LEAGUE_API_MAP.items():
         url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/?apiKey={api_key}&regions=uk&markets=h2h"
-        res = requests.get(url)
+        try: res = requests.get(url, timeout=10)
+        except Exception: continue
         
-        if res.status_code != 200:
-            continue
-            
+        if res.status_code != 200: continue
         data = res.json()
-        if not data:
-            continue
+        if not data: continue
 
         for match in data:
-            home_raw = match["home_team"]
-            away_raw = match["away_team"]
+            home_raw, away_raw = match["home_team"], match["away_team"]
+            home_team, away_team = master_map.get(home_raw, home_raw), master_map.get(away_raw, away_raw)
+            h_stats, a_stats = get_latest_team_stats(home_team, feat_df), get_latest_team_stats(away_team, feat_df)
             
-            home_team = TEAM_NAME_MAP.get(home_raw, home_raw)
-            away_team = TEAM_NAME_MAP.get(away_raw, away_raw)
-
-            h_stats = get_latest_team_stats(home_team, feat_df)
-            a_stats = get_latest_team_stats(away_team, feat_df)
-            
-            if not h_stats or not a_stats:
-                continue 
+            if not h_stats: unmapped_teams.add((home_raw, league_name)); continue
+            if not a_stats: unmapped_teams.add((away_raw, league_name)); continue
 
             h_odds, d_odds, a_odds = [], [], []
             for bookmaker in match["bookmakers"]:
@@ -104,43 +83,24 @@ def fetch_live_predictions(model, feat_df):
                             elif outcome["name"] == away_raw: a_odds.append(outcome["price"])
                             elif outcome["name"] == "Draw": d_odds.append(outcome["price"])
             
-            if not h_odds or not d_odds or not a_odds:
-                continue
+            if not h_odds or not d_odds or not a_odds: continue
 
-            p_home, p_draw, p_away = get_implied_probs(
-                sum(h_odds)/len(h_odds), 
-                sum(d_odds)/len(d_odds), 
-                sum(a_odds)/len(a_odds)
-            )
-
-            # FIXED: The key is now "league" (lowercase) so it matches features.py
+            p_home, p_draw, p_away = get_implied_probs(sum(h_odds)/len(h_odds), sum(d_odds)/len(d_odds), sum(a_odds)/len(a_odds))
             row = {
-                "league": league_name, 
-                "Date": pd.to_datetime(match["commence_time"]).strftime("%Y-%m-%d %H:%M"),
-                "HomeTeam": home_team,
-                "AwayTeam": away_team,
-                "elo_diff": h_stats["elo"] - a_stats["elo"],
-                "form_diff": h_stats["ppg"] - a_stats["ppg"],
-                "form_home_gf": h_stats["gf"], "form_home_ga": h_stats["ga"],
-                "form_away_gf": a_stats["gf"], "form_away_ga": a_stats["ga"],
-                "rest_home": 7, "rest_away": 7, 
-                "p_home": p_home, "p_draw": p_draw, "p_away": p_away
+                "league": league_name, "Date": pd.to_datetime(match["commence_time"]).strftime("%Y-%m-%d %H:%M"),
+                "HomeTeam": home_team, "AwayTeam": away_team,
+                "elo_diff": h_stats["elo"] - a_stats["elo"], "form_diff": h_stats["ppg"] - a_stats["ppg"],
+                "form_home_gf": h_stats["gf"], "form_home_ga": h_stats["ga"], "form_away_gf": a_stats["gf"], "form_away_ga": a_stats["ga"],
+                "rest_home": 7, "rest_away": 7, "p_home": p_home, "p_draw": p_draw, "p_away": p_away
             }
             
-            # This line will now work perfectly
             probs = model.predict_proba(pd.DataFrame([row])[FEATURES])[0]
-            
-            row["Home Win %"] = round(probs[0]*100, 1)
-            row["Draw %"] = round(probs[1]*100, 1)
-            row["Away Win %"] = round(probs[2]*100, 1)
-            
+            row["Home Win %"], row["Draw %"], row["Away Win %"] = round(probs[0]*100, 1), round(probs[1]*100, 1), round(probs[2]*100, 1)
             all_predictions.append(row)
 
-    if not all_predictions:
-        return pd.DataFrame({"Info": ["No upcoming matches found across the configured leagues right now."]})
+    if not all_predictions: return pd.DataFrame({"Info": ["No upcoming matches found."]}), list(unmapped_teams)
         
     df = pd.DataFrame(all_predictions)
+    save_predictions(df)
     df = df.sort_values(["league", "Date"]).reset_index(drop=True)
-    
-    # Output the formatted columns for the UI
-    return df[["league", "Date", "HomeTeam", "AwayTeam", "Home Win %", "Draw %", "Away Win %"]]
+    return df[["league", "Date", "HomeTeam", "AwayTeam", "Home Win %", "Draw %", "Away Win %", "p_home", "p_draw", "p_away"]], list(unmapped_teams)
