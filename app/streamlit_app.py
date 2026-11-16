@@ -1,114 +1,83 @@
-import sys, pathlib
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.append(str(ROOT / "src"))
+def fetch_live_predictions(model, feat_df):
+    api_key = st.secrets.get("ODDS_API_KEY")
+    if not api_key:
+        return pd.DataFrame({"Error": ["API Key not found in .env file."]}), []
 
-import pandas as pd
-import joblib
-import streamlit as st
-from features import FEATURES
-from live_predictor import fetch_live_predictions
+    # Load custom mappings from DB and merge with hardcoded ones
+    db_mappings = get_team_mappings()
+    master_map = {**TEAM_NAME_MAP, **db_mappings}
 
-st.set_page_config(page_title="Multi-League Predictor", page_icon="⚽", layout="wide")
-st.title("⚽ European Football Probability Predictor")
+    all_predictions = []
+    unmapped_teams = set() # Keep track of teams we don't know
 
-@st.cache_data(ttl=3600)
-def load_data():
-    return pd.read_parquet(ROOT / "data/processed/features.parquet")
-
-@st.cache_resource
-def load_model():
-    return joblib.load(ROOT / "models/multi_league_model.joblib")
-
-feat = load_data()
-bundle = load_model()
-model = bundle["model"]
-
-tab1, tab2, tab3 = st.tabs(["🔥 Live Fixtures", "🎮 Matchup Simulator", "📊 Model Analytics"])
-
-# --- TAB 1: LIVE FIXTURES ---
-with tab1:
-    st.header("Upcoming Matches Across Europe")
-    st.write("These are real upcoming fixtures with live odds pulled from The Odds API.")
-    
-    if st.button("Refresh Live Data"):
-        st.cache_data.clear()
+    for league_name, sport_key in LEAGUE_API_MAP.items():
+        url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/?apiKey={api_key}&regions=uk&markets=h2h"
+        res = requests.get(url)
         
-    with st.spinner("Fetching live odds across all leagues and running model..."):
-        live_df = fetch_live_predictions(model, feat)
-        
-    if "Error" in live_df.columns or "Info" in live_df.columns:
-        st.warning(live_df.iloc[0, 0])
+        if res.status_code != 200: continue
+        data = res.json()
+        if not data: continue
+
+        for match in data:
+            home_raw = match["home_team"]
+            away_raw = match["away_team"]
+            
+            # Use the master map (hardcoded + database)
+            home_team = master_map.get(home_raw, home_raw)
+            away_team = master_map.get(away_raw, away_raw)
+
+            h_stats = get_latest_team_stats(home_team, feat_df)
+            a_stats = get_latest_team_stats(away_team, feat_df)
+            
+            # If we don't have data, log the unknown raw name and skip
+            if not h_stats:
+                unmapped_teams.add((home_raw, league_name))
+                continue
+            if not a_stats:
+                unmapped_teams.add((away_raw, league_name))
+                continue
+
+            h_odds, d_odds, a_odds = [], [], []
+            for bookmaker in match["bookmakers"]:
+                for market in bookmaker["markets"]:
+                    if market["key"] == "h2h":
+                        for outcome in market["outcomes"]:
+                            if outcome["name"] == home_raw: h_odds.append(outcome["price"])
+                            elif outcome["name"] == away_raw: a_odds.append(outcome["price"])
+                            elif outcome["name"] == "Draw": d_odds.append(outcome["price"])
+            
+            if not h_odds or not d_odds or not a_odds: continue
+
+            p_home, p_draw, p_away = get_implied_probs(
+                sum(h_odds)/len(h_odds), sum(d_odds)/len(d_odds), sum(a_odds)/len(a_odds)
+            )
+
+            row = {
+                "league": league_name, 
+                "Date": pd.to_datetime(match["commence_time"]).strftime("%Y-%m-%d %H:%M"),
+                "HomeTeam": home_team,
+                "AwayTeam": away_team,
+                "elo_diff": h_stats["elo"] - a_stats["elo"],
+                "form_diff": h_stats["ppg"] - a_stats["ppg"],
+                "form_home_gf": h_stats["gf"], "form_home_ga": h_stats["ga"],
+                "form_away_gf": a_stats["gf"], "form_away_ga": a_stats["ga"],
+                "rest_home": 7, "rest_away": 7, 
+                "p_home": p_home, "p_draw": p_draw, "p_away": p_away
+            }
+            
+            probs = model.predict_proba(pd.DataFrame([row])[FEATURES])[0]
+            row["Home Win %"] = round(probs[0]*100, 1)
+            row["Draw %"] = round(probs[1]*100, 1)
+            row["Away Win %"] = round(probs[2]*100, 1)
+            
+            all_predictions.append(row)
+
+    if not all_predictions:
+        df = pd.DataFrame({"Info": ["No upcoming matches found."]})
     else:
-        # Display results grouped by league
-        for league in live_df["league"].unique():
-            st.subheader(league)
-            league_data = live_df[live_df["league"] == league].drop(columns=["league"])
-            st.dataframe(league_data, use_container_width=True, hide_index=True)
+        df = pd.DataFrame(all_predictions)
+        save_predictions(df) # Save to DB
+        df = df.sort_values(["league", "Date"]).reset_index(drop=True)
+        df = df[["league", "Date", "HomeTeam", "AwayTeam", "Home Win %", "Draw %", "Away Win %", "p_home", "p_draw", "p_away"]]
 
-# --- TAB 2: SIMULATOR --- (Unchanged from previous step)
-with tab2:
-    st.header("Matchup Simulator")
-    
-    all_leagues = sorted(feat["league"].unique())
-    selected_league = st.selectbox("Select League", all_leagues)
-    
-    league_df = feat[feat["league"] == selected_league]
-    all_teams = sorted(league_df["HomeTeam"].unique())
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        home_team = st.selectbox("Select Home Team", all_teams, index=0)
-    with col2:
-        away_team = st.selectbox("Select Away Team", all_teams, index=1 if len(all_teams)>1 else 0)
-
-    if home_team == away_team:
-        st.warning("Please select two different teams.")
-    else:
-        home_stats = league_df[league_df["HomeTeam"] == home_team].iloc[-1]
-        away_stats = league_df[league_df["AwayTeam"] == away_team].iloc[-1]
-
-        sim_features = pd.DataFrame([{
-            "league": selected_league,
-            "elo_diff": home_stats["elo_home"] - away_stats["elo_away"],
-            "form_diff": home_stats["form_home_ppg"] - away_stats["form_away_ppg"],
-            "form_home_gf": home_stats["form_home_gf"], "form_home_ga": home_stats["form_home_ga"],
-            "form_away_gf": away_stats["form_away_gf"], "form_away_ga": away_stats["form_away_ga"],
-            "rest_home": 7, "rest_away": 7,
-            "p_home": 0.45, "p_draw": 0.25, "p_away": 0.30
-        }])
-
-        probs = model.predict_proba(sim_features[FEATURES])[0]
-
-        st.divider()
-        st.subheader(f"{home_team} vs {away_team} ({selected_league})")
-
-        pcol1, pcol2, pcol3 = st.columns(3)
-        pcol1.metric(f"{home_team} Win", f"{probs[0]*100:.1f}%")
-        pcol2.metric("Draw", f"{probs[1]*100:.1f}%")
-        pcol3.metric(f"{away_team} Win", f"{probs[2]*100:.1f}%")
-
-# --- TAB 3: MODEL ANALYTICS ---
-with tab3:
-    st.header("Model Performance & Calibration")
-    st.write("""
-    A good probability model isn't just about picking winners; it's about being **calibrated**. 
-    If the model predicts a 60% chance of a Home Win, that outcome should happen roughly 60% of the time.
-    """)
-    
-    # Display the calibration image generated by evaluate.py
-    img_path = ROOT / "data/processed/multi_calibration.png"
-    if img_path.exists():
-        st.image(str(img_path), caption="Calibration Curve (2024-25 Season)", width=800)
-    else:
-        st.info("Run `python src/evaluate.py` locally to generate the calibration chart.")
-
-    st.divider()
-    st.subheader("Evaluation Metrics by League")
-    st.write("Lower Log-Loss and Brier scores are better. Notice how the model consistently beats the raw Bookmaker Odds.")
-    
-    metrics_path = ROOT / "data/processed/metrics.csv"
-    if metrics_path.exists():
-        metrics_df = pd.read_csv(metrics_path)
-        st.dataframe(metrics_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("Metrics file not found. Run `python src/evaluate.py`.")
+    return df, list(unmapped_teams)
