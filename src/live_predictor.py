@@ -14,22 +14,62 @@ LEAGUE_API_MAP = {
 }
 
 TEAM_NAME_MAP = {
-    "Manchester United": "Man United", "Manchester City": "Man City", "Newcastle United": "Newcastle", 
-    "Nottingham Forest": "Nott'm Forest", "Tottenham Hotspur": "Tottenham", "West Ham United": "West Ham",
-    "Wolverhampton Wanderers": "Wolves", "Brighton and Hove Albion": "Brighton", "Leicester City": "Leicester", 
-    "Ipswich Town": "Ipswich", "Athletic Bilbao": "Ath Bilbao", "Atletico Madrid": "Ath Madrid",
-    "Celta Vigo": "Celta", "Real Betis": "Betis", "Real Madrid": "Real Madrid", "Real Sociedad": "Sociedad", 
-    "Sevilla FC": "Sevilla", "Valencia CF": "Valencia", "Villarreal CF": "Villarreal", "Deportivo Alaves": "Alaves",
-    "Rayo Vallecano": "Vallecano", "CA Osasuna": "Osasuna", "RCD Mallorca": "Mallorca", "AC Milan": "Milan", 
-    "AS Roma": "Roma", "Inter Milan": "Inter", "Juventus FC": "Juventus", "SSC Napoli": "Napoli", "SS Lazio": "Lazio",
-    "ACF Fiorentina": "Fiorentina", "Atalanta BC": "Atalanta", "Bologna FC": "Bologna", "Torino FC": "Torino", 
-    "Udinese Calcio": "Udinese", "Bayern Munich": "Bayern Munich", "Borussia Dortmund": "Dortmund", "RB Leipzig": "RB Leipzig",
-    "Bayer Leverkusen": "Leverkusen", "Eintracht Frankfurt": "Ein Frankfurt", "VfB Stuttgart": "Stuttgart",
-    "SC Freiburg": "Freiburg", "VfL Wolfsburg": "Wolfsburg", "Borussia Monchengladbach": "M'gladbach",
-    "1. FC Union Berlin": "Union Berlin", "FC Augsburg": "Augsburg", "TSG Hoffenheim": "Hoffenheim", "Mainz 05": "Mainz",
-    "FC Copenhagen": "Copenhagen", "FC Midtjylland": "Midtjylland", "Brondby IF": "Brondby", "AGF Aarhus": "Aarhus",
-    "Bodo/Glimt": "Bodo/Glimt", "Rosenborg BK": "Rosenborg", "Molde FK": "Molde", "SK Brann": "Brann", "Viking FK": "Viking"
+    # Premier League
+    "Arsenal": "Arsenal", "Aston Villa": "Aston Villa", "Bournemouth": "Bournemouth", 
+    "Brentford": "Brentford", "Brighton and Hove Albion": "Brighton", "Chelsea": "Chelsea", 
+    "Crystal Palace": "Crystal Palace", "Everton": "Everton", "Fulham": "Fulham", 
+    "Ipswich Town": "Ipswich", "Leicester City": "Leicester", "Liverpool": "Liverpool", 
+    "Manchester City": "Man City", "Manchester United": "Man United", "Newcastle United": "Newcastle", 
+    "Nottingham Forest": "Nott'm Forest", "Southampton": "Southampton", "Tottenham Hotspur": "Tottenham", 
+    "West Ham United": "West Ham", "Wolverhampton Wanderers": "Wolves",
+
+    # La Liga
+    "Deportivo Alaves": "Alaves", "Athletic Bilbao": "Ath Bilbao", "Atletico Madrid": "Ath Madrid", 
+    "Barcelona": "Barcelona", "Real Betis": "Betis", "Celta Vigo": "Celta", "Espanyol": "Espanyol", 
+    "Getafe": "Getafe", "Girona": "Girona", "Las Palmas": "Las Palmas", "Leganes": "Leganes", 
+    "RCD Mallorca": "Mallorca", "CA Osasuna": "Osasuna", "Rayo Vallecano": "Vallecano", 
+    "Real Madrid": "Real Madrid", "Real Sociedad": "Sociedad", "Sevilla FC": "Sevilla", 
+    "Valencia CF": "Valencia", "Real Valladolid": "Valladolid", "Villarreal CF": "Villarreal",
+
+    # Serie A
+    "Atalanta BC": "Atalanta", "Bologna FC": "Bologna", "Cagliari": "Cagliari", "Como": "Como", 
+    "Empoli": "Empoli", "ACF Fiorentina": "Fiorentina", "Genoa": "Genoa", "Hellas Verona": "Verona", 
+    "Inter Milan": "Inter", "Juventus FC": "Juventus", "SS Lazio": "Lazio", "Lecce": "Lecce", 
+    "AC Milan": "Milan", "Monza": "Monza", "SSC Napoli": "Napoli", "Parma": "Parma", 
+    "AS Roma": "Roma", "Torino FC": "Torino", "Udinese Calcio": "Udinese", "Venezia": "Venezia",
+
+    # Bundesliga
+    "FC Augsburg": "Augsburg", "Bayer Leverkusen": "Leverkusen", "Bayern Munich": "Bayern Munich", 
+    "VfL Bochum": "Bochum", "Borussia Dortmund": "Dortmund", "Eintracht Frankfurt": "Ein Frankfurt", 
+    "SC Freiburg": "Freiburg", "1. FC Heidenheim": "Heidenheim", "TSG Hoffenheim": "Hoffenheim", 
+    "Holstein Kiel": "Holstein Kiel", "RB Leipzig": "RB Leipzig", "Borussia Monchengladbach": "M'gladbach", 
+    "Mainz 05": "Mainz", "FC St. Pauli": "St Pauli", "VfB Stuttgart": "Stuttgart", 
+    "1. FC Union Berlin": "Union Berlin", "Werder Bremen": "Werder Bremen", "VfL Wolfsburg": "Wolfsburg",
+
+    # Superliga (Denmark)
+    "Aalborg BK": "Aalborg", "AGF Aarhus": "Aarhus", "Brondby IF": "Brondby", 
+    "FC Copenhagen": "Copenhagen", "Lyngby BK": "Lyngby", "FC Midtjylland": "Midtjylland", 
+    "FC Nordsjaelland": "Nordsjaelland", "Randers FC": "Randers", "Silkeborg IF": "Silkeborg", 
+    "SonderjyskE": "SonderjyskE", "Vejle BK": "Vejle", "Viborg FF": "Viborg",
+
+    # Eliteserien (Norway)
+    "Bodo/Glimt": "Bodo/Glimt", "SK Brann": "Brann", "Fredrikstad": "Fredrikstad", 
+    "HamKam": "HamKam", "FK Haugesund": "Haugesund", "KFUM Oslo": "KFUM", 
+    "Kristiansund BK": "Kristiansund", "Lillestrom": "Lillestrom", "Molde FK": "Molde", 
+    "Odds BK": "Odd", "Rosenborg BK": "Rosenborg", "Sandefjord": "Sandefjord", 
+    "Sarpsborg 08": "Sarpsborg", "Stromsgodset": "Stromsgodset", "Tromso": "Tromso", 
+    "Viking FK": "Viking"
 }
+# Add these to your TEAM_NAME_MAP:
+    "Atlético Madrid": "Ath Madrid",
+    "Alavés": "Alaves",
+    "Espanyol": "Espanyol",
+    "Bodø/Glimt": "Bodo/Glimt",
+    "Vålerenga": "Valerenga",
+    "FSV Mainz 05": "Mainz",
+    "1. FC Köln": "FC Koln",     # If Koln is in your data
+    "Deportivo La Coruña": "La Coruna", 
+    # If they are in your data
 
 def get_implied_probs(h, d, a):
     inv = 1/h + 1/d + 1/a
