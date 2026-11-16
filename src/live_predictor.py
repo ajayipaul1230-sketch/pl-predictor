@@ -14,7 +14,6 @@ LEAGUE_API_MAP = {
 }
 
 TEAM_NAME_MAP = {
-    # Premier League
     "Arsenal": "Arsenal", "Aston Villa": "Aston Villa", "Bournemouth": "Bournemouth", 
     "Brentford": "Brentford", "Brighton and Hove Albion": "Brighton", "Chelsea": "Chelsea", 
     "Crystal Palace": "Crystal Palace", "Everton": "Everton", "Fulham": "Fulham", 
@@ -22,37 +21,27 @@ TEAM_NAME_MAP = {
     "Manchester City": "Man City", "Manchester United": "Man United", "Newcastle United": "Newcastle", 
     "Nottingham Forest": "Nott'm Forest", "Southampton": "Southampton", "Tottenham Hotspur": "Tottenham", 
     "West Ham United": "West Ham", "Wolverhampton Wanderers": "Wolves",
-
-    # La Liga
     "Deportivo Alaves": "Alaves", "Athletic Bilbao": "Ath Bilbao", "Atletico Madrid": "Ath Madrid", 
     "Barcelona": "Barcelona", "Real Betis": "Betis", "Celta Vigo": "Celta", "Espanyol": "Espanyol", 
     "Getafe": "Getafe", "Girona": "Girona", "Las Palmas": "Las Palmas", "Leganes": "Leganes", 
     "RCD Mallorca": "Mallorca", "CA Osasuna": "Osasuna", "Rayo Vallecano": "Vallecano", 
     "Real Madrid": "Real Madrid", "Real Sociedad": "Sociedad", "Sevilla FC": "Sevilla", 
     "Valencia CF": "Valencia", "Real Valladolid": "Valladolid", "Villarreal CF": "Villarreal",
-
-    # Serie A
     "Atalanta BC": "Atalanta", "Bologna FC": "Bologna", "Cagliari": "Cagliari", "Como": "Como", 
     "Empoli": "Empoli", "ACF Fiorentina": "Fiorentina", "Genoa": "Genoa", "Hellas Verona": "Verona", 
     "Inter Milan": "Inter", "Juventus FC": "Juventus", "SS Lazio": "Lazio", "Lecce": "Lecce", 
     "AC Milan": "Milan", "Monza": "Monza", "SSC Napoli": "Napoli", "Parma": "Parma", 
     "AS Roma": "Roma", "Torino FC": "Torino", "Udinese Calcio": "Udinese", "Venezia": "Venezia",
-
-    # Bundesliga
     "FC Augsburg": "Augsburg", "Bayer Leverkusen": "Leverkusen", "Bayern Munich": "Bayern Munich", 
     "VfL Bochum": "Bochum", "Borussia Dortmund": "Dortmund", "Eintracht Frankfurt": "Ein Frankfurt", 
     "SC Freiburg": "Freiburg", "1. FC Heidenheim": "Heidenheim", "TSG Hoffenheim": "Hoffenheim", 
     "Holstein Kiel": "Holstein Kiel", "RB Leipzig": "RB Leipzig", "Borussia Monchengladbach": "M'gladbach", 
     "Mainz 05": "Mainz", "FC St. Pauli": "St Pauli", "VfB Stuttgart": "Stuttgart", 
     "1. FC Union Berlin": "Union Berlin", "Werder Bremen": "Werder Bremen", "VfL Wolfsburg": "Wolfsburg",
-
-    # Superliga (Denmark)
     "Aalborg BK": "Aalborg", "AGF Aarhus": "Aarhus", "Brondby IF": "Brondby", 
     "FC Copenhagen": "Copenhagen", "Lyngby BK": "Lyngby", "FC Midtjylland": "Midtjylland", 
     "FC Nordsjaelland": "Nordsjaelland", "Randers FC": "Randers", "Silkeborg IF": "Silkeborg", 
     "SonderjyskE": "SonderjyskE", "Vejle BK": "Vejle", "Viborg FF": "Viborg",
-
-    # Eliteserien (Norway)
     "Bodo/Glimt": "Bodo/Glimt", "SK Brann": "Brann", "Fredrikstad": "Fredrikstad", 
     "HamKam": "HamKam", "FK Haugesund": "Haugesund", "KFUM Oslo": "KFUM", 
     "Kristiansund BK": "Kristiansund", "Lillestrom": "Lillestrom", "Molde FK": "Molde", 
@@ -60,16 +49,6 @@ TEAM_NAME_MAP = {
     "Sarpsborg 08": "Sarpsborg", "Stromsgodset": "Stromsgodset", "Tromso": "Tromso", 
     "Viking FK": "Viking"
 }
-# Add these to your TEAM_NAME_MAP:
-    "Atlético Madrid": "Ath Madrid",
-    "Alavés": "Alaves",
-    "Espanyol": "Espanyol",
-    "Bodø/Glimt": "Bodo/Glimt",
-    "Vålerenga": "Valerenga",
-    "FSV Mainz 05": "Mainz",
-    "1. FC Köln": "FC Koln",     # If Koln is in your data
-    "Deportivo La Coruña": "La Coruna", 
-    # If they are in your data
 
 def get_implied_probs(h, d, a):
     inv = 1/h + 1/d + 1/a
@@ -85,12 +64,11 @@ def get_latest_team_stats(team, feat_df):
         return {"elo": away["elo_away"].iloc[0], "ppg": away["form_away_ppg"].iloc[0], "gf": away["form_away_gf"].iloc[0], "ga": away["form_away_ga"].iloc[0]}
 
 def fetch_live_predictions(model, feat_df):
-    # Safe API key loading for both local and cloud
     try: api_key = st.secrets.get("ODDS_API_KEY")
     except Exception: api_key = os.getenv("ODDS_API_KEY")
 
     if not api_key:
-        return pd.DataFrame({"Error": ["API Key not found. Check .env or Streamlit Secrets."]}), []
+        return pd.DataFrame({"Error": ["API Key not found."]}), []
 
     db_mappings = get_team_mappings()
     master_map = {**TEAM_NAME_MAP, **db_mappings}

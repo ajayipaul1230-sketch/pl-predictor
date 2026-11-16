@@ -50,7 +50,7 @@ with tab1:
     else:
         for league in live_df["league"].unique():
             st.subheader(league)
-            st.dataframe(live_df[live_df["league"] == league].drop(columns=["league", "p_home", "p_draw", "p_away"]), use_container_width=True, hide_index=True)
+            st.dataframe(live_df[live_df["league"] == league].drop(columns=["league", "p_home", "p_draw", "p_away"]), width="stretch", hide_index=True)
 
 # --- TAB 2: SIMULATOR ---
 with tab2:
@@ -88,7 +88,7 @@ with tab3:
     img_path = ROOT / "data/processed/multi_calibration.png"
     if img_path.exists(): st.image(str(img_path), caption="Calibration Curve", width=800)
     metrics_path = ROOT / "data/processed/metrics.csv"
-    if metrics_path.exists(): st.dataframe(pd.read_csv(metrics_path), use_container_width=True, hide_index=True)
+    if metrics_path.exists(): st.dataframe(pd.read_csv(metrics_path), width="stretch", hide_index=True)
 
 # --- TAB 4: PREDICTION TRACKER ---
 with tab4:
@@ -107,4 +107,4 @@ with tab4:
         display_df = df_history.copy()
         for col in ["p_home", "p_draw", "p_away"]:
             display_df[col] = (display_df[col] * 100).round(1).astype(str) + "%"
-        st.dataframe(display_df[["match_date", "league", "home_team", "away_team", "p_home", "p_draw", "p_away", "actual_result", "brier_score"]], use_container_width=True, hide_index=True)
+        st.dataframe(display_df[["match_date", "league", "home_team", "away_team", "p_home", "p_draw", "p_away", "actual_result", "brier_score"]], width="stretch", hide_index=True)
